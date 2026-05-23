@@ -68,8 +68,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {
+    console.error("Calendar task create failed", error);
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to create task." },
+      {
+        error:
+          error instanceof Error && error.message === "Task title is required."
+            ? error.message
+            : "Unable to save this calendar task. Please try again.",
+      },
       { status: 400 }
     );
   }

@@ -27,24 +27,35 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid task id." }, { status: 400 });
   }
 
-  const payload = (await request.json()) as UpdatePayload;
-  const scheduledDate = payload.scheduledDate || null;
-  const scheduledTime = payload.scheduledTime || null;
+  try {
+    const payload = (await request.json()) as UpdatePayload;
+    const scheduledDate = payload.scheduledDate || null;
+    const scheduledTime = payload.scheduledTime || null;
 
-  const [task] = await db
-    .update(calendarTasks)
-    .set({
-      scheduledDate,
-      scheduledTime,
-      status: scheduledDate ? "scheduled" : payload.status || "draft",
-      updatedAt: new Date(),
-    })
-    .where(and(eq(calendarTasks.id, taskId), eq(calendarTasks.userId, user.id)))
-    .returning();
+    const [task] = await db
+      .update(calendarTasks)
+      .set({
+        scheduledDate,
+        scheduledTime,
+        status: scheduledDate ? "scheduled" : payload.status || "draft",
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(calendarTasks.id, taskId), eq(calendarTasks.userId, user.id))
+      )
+      .returning();
 
-  if (!task) {
-    return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    if (!task) {
+      return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ task });
+  } catch (error) {
+    console.error("Calendar task update failed", error);
+
+    return NextResponse.json(
+      { error: "Unable to update this calendar task. Please try again." },
+      { status: 400 }
+    );
   }
-
-  return NextResponse.json({ task });
 }

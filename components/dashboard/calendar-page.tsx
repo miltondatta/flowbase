@@ -118,6 +118,7 @@ export function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [tasks, setTasks] = useState<CalendarTask[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [form, setForm] = useState<TaskForm>(() => initialForm(todayKey));
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -188,9 +189,24 @@ export function CalendarPage() {
   function openTaskDialog(dateKey = selectedDate, saveAsDraft = false) {
     const nextForm = initialForm(dateKey);
 
+    setEditingTaskId(null);
     setForm({
       ...nextForm,
       scheduledDate: saveAsDraft ? "" : dateKey,
+    });
+    setIsDialogOpen(true);
+  }
+
+  function openEditTaskDialog(task: CalendarTask) {
+    setEditingTaskId(task.id);
+    setForm({
+      title: task.title,
+      type: task.type,
+      category: task.category,
+      categoryColor: task.categoryColor,
+      scheduledDate: task.scheduledDate || selectedDate,
+      scheduledTime: task.scheduledTime || "",
+      notes: task.notes || "",
     });
     setIsDialogOpen(true);
   }
@@ -200,17 +216,23 @@ export function CalendarPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/calendar/tasks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...form,
-          scheduledDate: asDraft ? null : form.scheduledDate || selectedDate,
-          scheduledTime: asDraft ? null : form.scheduledTime || null,
-        }),
-      });
+      const payload = {
+        ...form,
+        scheduledDate: asDraft ? null : form.scheduledDate || selectedDate,
+        scheduledTime: asDraft ? null : form.scheduledTime || null,
+      };
+      const response = await fetch(
+        editingTaskId
+          ? `/api/calendar/tasks/${editingTaskId}`
+          : "/api/calendar/tasks",
+        {
+          method: editingTaskId ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
@@ -218,8 +240,17 @@ export function CalendarPage() {
       }
 
       const data = (await response.json()) as { task: CalendarTask };
-      setTasks((current) => [data.task, ...current]);
+
+      if (editingTaskId) {
+        setTasks((current) =>
+          current.map((task) => (task.id === data.task.id ? data.task : task))
+        );
+      } else {
+        setTasks((current) => [data.task, ...current]);
+      }
+
       setIsDialogOpen(false);
+      setEditingTaskId(null);
     } catch (saveError) {
       setError(
         saveError instanceof Error ? saveError.message : "Unable to save task."
@@ -477,6 +508,7 @@ export function CalendarPage() {
                           {dayTasks.slice(0, mode === "month" ? 3 : 9).map((task) => (
                             <TaskChip
                               key={task.id}
+                              onClick={openEditTaskDialog}
                               onDragStart={setDragData}
                               task={task}
                             />
@@ -531,6 +563,7 @@ export function CalendarPage() {
                 drafts.map((task) => (
                   <DraftCard
                     key={task.id}
+                    onClick={openEditTaskDialog}
                     onDragStart={setDragData}
                     task={task}
                   />
@@ -557,15 +590,22 @@ export function CalendarPage() {
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-[18px] font-semibold">New task</h2>
+                <h2 className="text-[18px] font-semibold">
+                  {editingTaskId ? "Edit task" : "New task"}
+                </h2>
                 <p className="text-[13px] text-[var(--flow-muted)]">
-                  Add a task or reminder with a clear category color.
+                  {editingTaskId
+                    ? "View or edit this task without leaving the calendar."
+                    : "Add a task or reminder with a clear category color."}
                 </p>
               </div>
               <button
                 aria-label="Close dialog"
                 className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--flow-panel)] text-[var(--flow-muted)]"
-                onClick={() => setIsDialogOpen(false)}
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  setEditingTaskId(null);
+                }}
                 type="button"
               >
                 <X className="h-4 w-4" />
@@ -723,7 +763,11 @@ export function CalendarPage() {
                 disabled={isSaving}
                 type="submit"
               >
-                {isSaving ? "Saving..." : "Save to date"}
+                {isSaving
+                  ? "Saving..."
+                  : editingTaskId
+                    ? "Update task"
+                    : "Save to date"}
               </button>
             </div>
           </form>
@@ -734,9 +778,11 @@ export function CalendarPage() {
 }
 
 function TaskChip({
+  onClick,
   onDragStart,
   task,
 }: {
+  onClick: (task: CalendarTask) => void;
   onDragStart: (event: DragEvent, taskId: number) => void;
   task: CalendarTask;
 }) {
@@ -746,6 +792,10 @@ function TaskChip({
     <div
       className="flex min-w-0 cursor-grab items-center gap-1.5 rounded-md border bg-white px-2 py-1 text-[11px] font-semibold shadow-sm active:cursor-grabbing"
       draggable
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick(task);
+      }}
       onDragStart={(event) => onDragStart(event, task.id)}
       style={{
         borderColor: `${task.categoryColor}55`,
@@ -764,9 +814,11 @@ function TaskChip({
 }
 
 function DraftCard({
+  onClick,
   onDragStart,
   task,
 }: {
+  onClick: (task: CalendarTask) => void;
   onDragStart: (event: DragEvent, taskId: number) => void;
   task: CalendarTask;
 }) {
@@ -774,6 +826,7 @@ function DraftCard({
     <div
       className="cursor-grab rounded-lg border border-[var(--flow-border)] bg-[var(--flow-panel)] p-3 active:cursor-grabbing"
       draggable
+      onClick={() => onClick(task)}
       onDragStart={(event) => onDragStart(event, task.id)}
     >
       <div className="mb-2 flex items-start justify-between gap-2">

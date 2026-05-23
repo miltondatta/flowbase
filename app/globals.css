@@ -28,6 +28,14 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-mint-50: #effbf6;
+  --color-mint-100: #d9f6e9;
+  --color-mint-500: #48b98f;
+  --color-mint-700: #23765b;
+  --color-coral-50: #fff3ed;
+  --color-coral-100: #ffe3d5;
+  --color-coral-500: #ff8c67;
+  --color-coral-700: #bd5639;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
@@ -55,26 +63,38 @@
 }
 
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(240 10% 3.9%);
+  --background: hsl(38 55% 97%);
+  --foreground: hsl(218 28% 16%);
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(240 10% 3.9%);
+  --card-foreground: hsl(218 28% 16%);
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(240 10% 3.9%);
-  --primary: hsl(240 5.9% 10%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(240 4.8% 95.9%);
-  --secondary-foreground: hsl(240 5.9% 10%);
-  --muted: hsl(240 4.8% 95.9%);
-  --muted-foreground: hsl(240 3.8% 46.1%);
-  --accent: hsl(240 4.8% 95.9%);
-  --accent-foreground: hsl(240 5.9% 10%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 5.9% 90%);
-  --input: hsl(240 5.9% 90%);
-  --ring: hsl(240 10% 3.9%);
+  --popover-foreground: hsl(218 28% 16%);
+  --primary: hsl(218 28% 16%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(164 48% 94%);
+  --secondary-foreground: hsl(218 28% 16%);
+  --muted: hsl(36 36% 94%);
+  --muted-foreground: hsl(218 12% 43%);
+  --accent: hsl(202 86% 94%);
+  --accent-foreground: hsl(218 28% 16%);
+  --destructive: hsl(9 82% 63%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(34 28% 88%);
+  --input: hsl(34 28% 88%);
+  --ring: hsl(202 86% 55%);
   --radius: 0.5rem;
+  --flow-app: #fbf7ef;
+  --flow-sidebar: #fffdf8;
+  --flow-panel: #f7f2e8;
+  --flow-ink: #202a39;
+  --flow-muted: #667085;
+  --flow-soft: #9a8f82;
+  --flow-border: #eadfce;
+  --flow-mint: #68d8bd;
+  --flow-sky: #54a8ff;
+  --flow-coral: #ff8c67;
+  --flow-amber: #f4b942;
+  --flow-lavender: #9b8cff;
 }
 
 .dark {
@@ -99,35 +119,17 @@
   --ring: hsl(240 4.9% 83.9%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: hsl(240 10% 3.9%);
-    --foreground: hsl(0 0% 98%);
-    --card: hsl(240 10% 3.9%);
-    --card-foreground: hsl(0 0% 98%);
-    --popover: hsl(240 10% 3.9%);
-    --popover-foreground: hsl(0 0% 98%);
-    --primary: hsl(0 0% 98%);
-    --primary-foreground: hsl(240 5.9% 10%);
-    --secondary: hsl(240 3.7% 15.9%);
-    --secondary-foreground: hsl(0 0% 98%);
-    --muted: hsl(240 3.7% 15.9%);
-    --muted-foreground: hsl(240 5% 64.9%);
-    --accent: hsl(240 3.7% 15.9%);
-    --accent-foreground: hsl(0 0% 98%);
-    --destructive: hsl(0 62.8% 30.6%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(240 3.7% 15.9%);
-    --input: hsl(240 3.7% 15.9%);
-    --ring: hsl(240 4.9% 83.9%);
-  }
-}
-
 @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  button,
+  input {
+    font: inherit;
   }
 }

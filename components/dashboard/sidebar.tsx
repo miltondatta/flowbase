@@ -15,12 +15,24 @@ import {
 
 import { cn } from "@/lib/utils";
 
+type DashboardView = "dashboard" | "calendar";
+
 type SidebarProps = {
+  activeView: DashboardView;
   isCollapsed: boolean;
+  onNavigate: (view: DashboardView) => void;
   onToggle: () => void;
 };
 
-const menuGroups = [
+type MenuItem = {
+  label: string;
+  icon: typeof LayoutDashboard;
+  color: string;
+  bg: string;
+  view?: DashboardView;
+};
+
+const menuGroups: { label: string; items: MenuItem[] }[] = [
   {
     label: "Workbench",
     items: [
@@ -29,7 +41,7 @@ const menuGroups = [
         icon: LayoutDashboard,
         color: "text-sky-500",
         bg: "bg-sky-50",
-        active: true,
+        view: "dashboard",
       },
       {
         label: "AI Assistant",
@@ -42,6 +54,7 @@ const menuGroups = [
         icon: CalendarDays,
         color: "text-emerald-500",
         bg: "bg-emerald-50",
+        view: "calendar",
       },
     ],
   },
@@ -98,7 +111,12 @@ const menuGroups = [
   },
 ];
 
-export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
+export function Sidebar({
+  activeView,
+  isCollapsed,
+  onNavigate,
+  onToggle,
+}: SidebarProps) {
   return (
     <aside
       className={cn(
@@ -138,16 +156,18 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
+                const isActive = item.view === activeView;
 
                 return (
                   <button
                     className={cn(
                       "group flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-left text-[13px] font-medium text-[var(--flow-muted)] transition hover:bg-white hover:text-[var(--flow-ink)] hover:shadow-[0_8px_22px_rgba(47,61,84,0.07)]",
-                      item.active &&
+                      isActive &&
                         "bg-white text-[var(--flow-ink)] shadow-[0_8px_24px_rgba(47,61,84,0.08)]",
                       isCollapsed && "justify-center px-0"
                     )}
                     key={item.label}
+                    onClick={() => item.view && onNavigate(item.view)}
                     title={isCollapsed ? item.label : undefined}
                     type="button"
                   >

@@ -8,6 +8,13 @@
       "when": 1779531064232,
       "tag": "0000_odd_meggan",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779538639334,
+      "tag": "0001_light_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }

@@ -4,13 +4,14 @@ import { useState } from "react";
 
 import { CalendarPage } from "@/components/dashboard/calendar-page";
 import { DashboardHome } from "@/components/dashboard/dashboard-home";
+import { KanbanPage } from "@/components/dashboard/kanban-page";
 import { Sidebar } from "@/components/dashboard/sidebar";
+
+type DashboardView = "dashboard" | "calendar" | "kanban";
 
 export function DashboardShell() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [activeView, setActiveView] = useState<"dashboard" | "calendar">(
-    "dashboard"
-  );
+  const [activeView, setActiveView] = useState<DashboardView>("dashboard");
 
   return (
     <main className="min-h-screen bg-[var(--flow-app)] text-[var(--flow-ink)]">
@@ -23,6 +24,8 @@ export function DashboardShell() {
         />
         {activeView === "calendar" ? (
           <CalendarPage />
+        ) : activeView === "kanban" ? (
+          <KanbanPage />
         ) : (
           <DashboardHome isSidebarCollapsed={isCollapsed} />
         )}

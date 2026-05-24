@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, asc, eq, ne } from "drizzle-orm";
 
 import { db, kanbanBoards, kanbanColumns, kanbanTasks } from "@/db";
-import { getUserColumn, normalizeColumnName } from "@/lib/kanban";
+import { getAccessibleColumn, normalizeColumnName } from "@/lib/kanban";
 import { syncCurrentUser } from "@/lib/sync-user";
 
 type RouteContext = {
@@ -29,7 +29,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid column id." }, { status: 400 });
   }
 
-  const result = await getUserColumn(id, user.id);
+  const result = await getAccessibleColumn(id, user);
 
   if (!result) {
     return NextResponse.json({ error: "Column not found." }, { status: 404 });
@@ -138,7 +138,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid column id." }, { status: 400 });
   }
 
-  const result = await getUserColumn(id, user.id);
+  const result = await getAccessibleColumn(id, user);
 
   if (!result) {
     return NextResponse.json({ error: "Column not found." }, { status: 404 });

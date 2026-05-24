@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 
-import { db, kanbanBoards, kanbanColumns, kanbanTasks } from "@/db";
+import { db, kanbanBoardShares, kanbanBoards, kanbanColumns, kanbanTasks } from "@/db";
 import {
   defaultColumns,
   normalizeBoardPayload,
@@ -16,16 +16,30 @@ export async function GET() {
   }
 
   const boards = await db
-    .select()
+    .select({
+      board: kanbanBoards,
+    })
     .from(kanbanBoards)
-    .where(eq(kanbanBoards.userId, user.id))
+    .leftJoin(
+      kanbanBoardShares,
+      and(
+        eq(kanbanBoardShares.boardId, kanbanBoards.id),
+        or(
+          eq(kanbanBoardShares.userId, user.id),
+          eq(kanbanBoardShares.email, user.email.toLowerCase())
+        )
+      )
+    )
+    .where(or(eq(kanbanBoards.userId, user.id), eq(kanbanBoardShares.role, "editor")))
     .orderBy(desc(kanbanBoards.updatedAt), desc(kanbanBoards.createdAt));
 
-  if (boards.length === 0) {
+  const accessibleBoards = boards.map((result) => result.board);
+
+  if (accessibleBoards.length === 0) {
     return NextResponse.json({ boards: [] });
   }
 
-  const boardIds = boards.map((board) => board.id);
+  const boardIds = accessibleBoards.map((board) => board.id);
   const columns = await db
     .select()
     .from(kanbanColumns)
@@ -38,7 +52,7 @@ export async function GET() {
     .orderBy(desc(kanbanTasks.updatedAt), desc(kanbanTasks.createdAt));
 
   return NextResponse.json({
-    boards: boards.map((board) => ({
+    boards: accessibleBoards.map((board) => ({
       ...board,
       columns: columns
         .filter((column) => column.boardId === board.id)

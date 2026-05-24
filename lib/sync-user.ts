@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
+import { eq } from "drizzle-orm";
 
-import { db, users } from "@/db";
+import { db, kanbanBoardShares, users } from "@/db";
 
 export async function syncCurrentUser() {
   const clerkUser = await currentUser();
@@ -37,6 +38,14 @@ export async function syncCurrentUser() {
       },
     })
     .returning();
+
+  await db
+    .update(kanbanBoardShares)
+    .set({
+      userId: syncedUser.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(kanbanBoardShares.email, email.toLowerCase()));
 
   return syncedUser;
 }

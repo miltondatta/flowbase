@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db, kanbanBoards, kanbanTasks } from "@/db";
 import {
   deleteLinkedCalendarTask,
-  getUserColumn,
+  getAccessibleColumn,
+  getAccessibleTask,
   normalizeTaskPayload,
   updateLinkedCalendarTask,
 } from "@/lib/kanban";
@@ -31,20 +32,6 @@ function parseId(id: string) {
   return Number.isInteger(value) ? value : null;
 }
 
-async function getUserTask(taskId: number, userId: number) {
-  const [result] = await db
-    .select({
-      task: kanbanTasks,
-      board: kanbanBoards,
-    })
-    .from(kanbanTasks)
-    .innerJoin(kanbanBoards, eq(kanbanTasks.boardId, kanbanBoards.id))
-    .where(and(eq(kanbanTasks.id, taskId), eq(kanbanBoards.userId, userId)))
-    .limit(1);
-
-  return result || null;
-}
-
 export async function PATCH(request: Request, context: RouteContext) {
   const user = await syncCurrentUser();
 
@@ -59,7 +46,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid task id." }, { status: 400 });
   }
 
-  const result = await getUserTask(id, user.id);
+  const result = await getAccessibleTask(id, user);
 
   if (!result) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
@@ -82,7 +69,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if ("columnId" in payload) {
       const nextColumnId = Number(payload.columnId);
       const nextColumn = Number.isInteger(nextColumnId)
-        ? await getUserColumn(nextColumnId, user.id)
+        ? await getAccessibleColumn(nextColumnId, user)
         : null;
 
       if (!nextColumn || nextColumn.board.id !== result.board.id) {
@@ -109,7 +96,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     if (isTaskContentUpdate) {
       const previousCalendarTaskId = result.task.calendarTaskId;
-      const calendarTask = await updateLinkedCalendarTask(user.id, task);
+      const calendarTask = await updateLinkedCalendarTask(result.board.userId, task);
       const [syncedTask] = await db
         .update(kanbanTasks)
         .set({
@@ -122,7 +109,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       task = syncedTask;
 
       if (!task.syncCalendar && previousCalendarTaskId) {
-        await deleteLinkedCalendarTask(user.id, previousCalendarTaskId);
+        await deleteLinkedCalendarTask(result.board.userId, previousCalendarTaskId);
       }
     }
 
@@ -161,7 +148,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid task id." }, { status: 400 });
   }
 
-  const result = await getUserTask(id, user.id);
+  const result = await getAccessibleTask(id, user);
 
   if (!result) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
@@ -170,7 +157,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   await db.delete(kanbanTasks).where(eq(kanbanTasks.id, id));
 
   if (result.task.calendarTaskId) {
-    await deleteLinkedCalendarTask(user.id, result.task.calendarTaskId);
+    await deleteLinkedCalendarTask(result.board.userId, result.task.calendarTaskId);
   }
 
   await db

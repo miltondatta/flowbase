@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, kanbanBoards, kanbanTasks } from "@/db";
 import {
   createLinkedCalendarTask,
-  getUserColumn,
+  getAccessibleColumn,
   normalizeTaskPayload,
 } from "@/lib/kanban";
 import { syncCurrentUser } from "@/lib/sync-user";
@@ -33,7 +33,7 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid column id." }, { status: 400 });
   }
 
-  const result = await getUserColumn(id, user.id);
+  const result = await getAccessibleColumn(id, user);
 
   if (!result) {
     return NextResponse.json({ error: "Column not found." }, { status: 404 });
@@ -49,7 +49,7 @@ export async function POST(request: Request, context: RouteContext) {
         columnId: id,
       })
       .returning();
-    const calendarTask = await createLinkedCalendarTask(user.id, createdTask);
+    const calendarTask = await createLinkedCalendarTask(result.board.userId, createdTask);
     const task = calendarTask
       ? (
           await db

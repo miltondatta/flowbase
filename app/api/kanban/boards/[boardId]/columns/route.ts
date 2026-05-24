@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
 
 import { db, kanbanColumns, kanbanBoards } from "@/db";
-import { getUserBoard, normalizeColumnName } from "@/lib/kanban";
+import { getEditableBoard, normalizeColumnName } from "@/lib/kanban";
 import { syncCurrentUser } from "@/lib/sync-user";
 
 type RouteContext = {
@@ -29,7 +29,8 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid board id." }, { status: 400 });
   }
 
-  const board = await getUserBoard(id, user.id);
+  const access = await getEditableBoard(id, user);
+  const board = access?.board || null;
 
   if (!board) {
     return NextResponse.json({ error: "Board not found." }, { status: 404 });

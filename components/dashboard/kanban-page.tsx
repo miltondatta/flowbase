@@ -2,10 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DragEvent, FormEvent, ReactNode } from "react";
+import { LiveblocksProvider } from "@liveblocks/react";
+import {
+  ClientSideSuspense,
+  RoomProvider,
+  useCreateThread,
+  useOthers,
+  useSelf,
+  useThreads,
+  useUpdateMyPresence,
+} from "@liveblocks/react/suspense";
+import { Thread } from "@liveblocks/react-ui";
+import { Composer } from "@liveblocks/react-ui/primitives";
 import {
   CalendarDays,
   CheckCircle2,
   Circle,
+  MessageCircle,
   Edit3,
   FileText,
   GripVertical,
@@ -14,8 +27,13 @@ import {
   Loader2,
   MoreHorizontal,
   Plus,
+  Send,
+  Settings,
+  Share2,
   Sparkles,
   Trash2,
+  UserPlus,
+  Users,
   X,
 } from "lucide-react";
 
@@ -58,6 +76,15 @@ type KanbanBoard = {
   columns: KanbanColumn[];
 };
 
+type BoardCollaborator = {
+  id: string;
+  userId: number | null;
+  email: string;
+  name: string;
+  role: string;
+  status: "active" | "pending";
+};
+
 type TaskForm = {
   title: string;
   description: string;
@@ -87,6 +114,27 @@ const priorityStyles: Record<Priority, string> = {
 const taskDragType = "application/x-flowbase-kanban-task";
 const columnDragType = "application/x-flowbase-kanban-column";
 
+function kanbanRoomId(boardId: number) {
+  return `kanban-board-${boardId}`;
+}
+
+function initialsFor(name: string, email = name) {
+  const source = name.trim() || email;
+  const parts = source.split(/\s+/).filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+
+  return source.slice(0, 2).toUpperCase();
+}
+
+function avatarColor(seed: string | number) {
+  const total = [...String(seed)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+
+  return boardColors[total % boardColors.length];
+}
+
 function todayKey() {
   const today = new Date();
   const year = today.getFullYear();
@@ -115,6 +163,7 @@ export function KanbanPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBoardDialogOpen, setIsBoardDialogOpen] = useState(false);
+  const [isCollaborationOpen, setIsCollaborationOpen] = useState(false);
   const [boardName, setBoardName] = useState("");
   const [boardColor, setBoardColor] = useState(boardColors[0]);
   const [newColumnName, setNewColumnName] = useState("");
@@ -405,10 +454,15 @@ export function KanbanPage() {
     }
   }
 
-  async function saveTask(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function saveTask(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
 
     if (!taskDialog || !selectedBoard) {
+      return;
+    }
+
+    if (!taskForm.title.trim()) {
+      setError("Task title is required.");
       return;
     }
 
@@ -710,6 +764,7 @@ export function KanbanPage() {
 
           <section className="min-w-0 rounded-lg border border-[var(--flow-border)] bg-white shadow-[0_14px_40px_rgba(47,61,84,0.06)]">
             {selectedBoard ? (
+              <KanbanCollaborationProvider boardId={selectedBoard.id}>
               <div className="flex h-full min-w-0 flex-col">
                 <div className="flex flex-col gap-3 border-b border-[var(--flow-border)] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
@@ -728,9 +783,18 @@ export function KanbanPage() {
                   </div>
 
                   <form
-                    className="flex min-w-0 flex-col gap-2 sm:flex-row"
+                    className="flex min-w-0 flex-col gap-2 sm:flex-row lg:items-center"
                     onSubmit={createColumn}
                   >
+                    <CollaboratorAvatars />
+                    <button
+                      className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-[var(--flow-border)] bg-white px-3 text-[13px] font-semibold text-[var(--flow-muted)] transition hover:border-[var(--flow-sky)] hover:text-[var(--flow-ink)]"
+                      onClick={() => setIsCollaborationOpen(true)}
+                      type="button"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Settings / Collaboration
+                    </button>
                     <input
                       className="h-10 min-w-0 rounded-lg border border-[var(--flow-border)] bg-white px-3 text-[13px] font-medium outline-none transition focus:border-[var(--flow-mint)] disabled:bg-[var(--flow-panel)]"
                       disabled={selectedBoard.columns.length >= 5 || isSaving}
@@ -874,6 +938,7 @@ export function KanbanPage() {
                   </div>
                 </div>
               </div>
+              </KanbanCollaborationProvider>
             ) : (
               <div className="grid min-h-[520px] place-items-center px-4 py-10 text-center">
                 <div>
@@ -956,11 +1021,17 @@ export function KanbanPage() {
         </div>
       )}
 
+      {isCollaborationOpen && selectedBoard && (
+        <CollaborationPanel
+          board={selectedBoard}
+          onClose={() => setIsCollaborationOpen(false)}
+        />
+      )}
+
       {taskDialog && (
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[rgba(32,42,57,0.24)] px-4 py-6 backdrop-blur-sm">
-          <form
+          <div
             className="w-full max-w-[620px] rounded-lg border border-[var(--flow-border)] bg-white p-4 shadow-[0_24px_70px_rgba(47,61,84,0.22)]"
-            onSubmit={saveTask}
           >
             <DialogHeader
               icon={<Plus className="h-4 w-4 text-mint-700" />}
@@ -1079,6 +1150,17 @@ export function KanbanPage() {
               </div>
             </div>
 
+            {taskDialog.task && selectedBoard && (
+              <div className="mt-4 rounded-lg border border-[var(--flow-border)] bg-[var(--flow-panel)] p-3">
+                <KanbanCollaborationProvider boardId={selectedBoard.id}>
+                  <TaskCommentsPanel
+                    boardId={selectedBoard.id}
+                    task={taskDialog.task}
+                  />
+                </KanbanCollaborationProvider>
+              </div>
+            )}
+
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
               {taskDialog.task ? (
                 <button
@@ -1104,16 +1186,368 @@ export function KanbanPage() {
                 <button
                   className="h-10 rounded-lg bg-[var(--flow-ink)] px-4 text-[13px] font-semibold text-white shadow-[0_10px_24px_rgba(47,61,84,0.16)] disabled:opacity-60"
                   disabled={isSaving}
-                  type="submit"
+                  onClick={() => saveTask()}
+                  type="button"
                 >
                   {isSaving ? "Saving..." : taskDialog.task ? "Update task" : "Create task"}
                 </button>
               </div>
             </div>
-          </form>
+          </div>
         </div>
       )}
     </section>
+  );
+}
+
+function KanbanCollaborationProvider({
+  boardId,
+  children,
+}: {
+  boardId: number;
+  children: ReactNode;
+}) {
+  return (
+    <LiveblocksProvider
+      authEndpoint="/api/liveblocks-auth"
+      resolveUsers={async ({ userIds }) => {
+        const response = await fetch("/api/liveblocks-users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userIds }),
+        });
+        const data = (await response.json()) as { users: Liveblocks["UserMeta"]["info"][] };
+
+        return data.users;
+      }}
+    >
+      <RoomProvider
+        id={kanbanRoomId(boardId)}
+        initialPresence={{ activeTaskId: null }}
+      >
+        <ClientSideSuspense
+          fallback={
+            <div className="flex min-h-[220px] items-center justify-center gap-2 text-[13px] font-semibold text-[var(--flow-muted)]">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading collaboration
+            </div>
+          }
+        >
+          {children}
+        </ClientSideSuspense>
+      </RoomProvider>
+    </LiveblocksProvider>
+  );
+}
+
+function CollaboratorAvatars() {
+  const self = useSelf((me) => me.info);
+  const others = useOthers();
+  const activeUsers = [
+    self,
+    ...others.map((other) => other.info).filter(Boolean),
+  ] as Liveblocks["UserMeta"]["info"][];
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-[var(--flow-border)] bg-white px-2 py-1.5">
+      <div className="flex -space-x-2">
+        {activeUsers.slice(0, 5).map((user, index) => (
+          <span
+            className="relative grid h-7 w-7 place-items-center rounded-full border-2 border-white text-[10px] font-bold text-white shadow-sm"
+            key={`${user.email}-${index}`}
+            style={{ backgroundColor: user.color }}
+            title={user.name}
+          >
+            {user.initials}
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-mint-500" />
+          </span>
+        ))}
+      </div>
+      <span className="hidden text-[12px] font-semibold text-[var(--flow-muted)] sm:inline">
+        {activeUsers.length} active
+      </span>
+    </div>
+  );
+}
+
+function CollaborationPanel({
+  board,
+  onClose,
+}: {
+  board: KanbanBoard;
+  onClose: () => void;
+}) {
+  const [collaborators, setCollaborators] = useState<BoardCollaborator[]>([]);
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInviting, setIsInviting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadCollaborators();
+  }, [board.id]);
+
+  async function loadCollaborators() {
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/kanban/boards/${board.id}/shares`, {
+        cache: "no-store",
+      });
+      const data = (await response.json()) as {
+        collaborators?: BoardCollaborator[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to load collaborators.");
+      }
+
+      setCollaborators(data.collaborators || []);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to load collaborators.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function inviteCollaborator(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsInviting(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/kanban/boards/${board.id}/shares`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = (await response.json()) as {
+        collaborators?: BoardCollaborator[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to invite collaborator.");
+      }
+
+      setCollaborators(data.collaborators || []);
+      setEmail("");
+      setMessage("Invitation saved for this board.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to invite collaborator.");
+    } finally {
+      setIsInviting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-[rgba(32,42,57,0.24)] backdrop-blur-sm">
+      <aside className="flex h-full w-full max-w-[440px] flex-col border-l border-[var(--flow-border)] bg-white shadow-[0_24px_70px_rgba(47,61,84,0.22)]">
+        <div className="border-b border-[var(--flow-border)] p-4">
+          <DialogHeader
+            icon={<Share2 className="h-4 w-4 text-sky-500" />}
+            onClose={onClose}
+            subtitle={`Shared access for ${board.name}`}
+            title="Collaboration"
+          />
+          <form className="mt-4 flex gap-2" onSubmit={inviteCollaborator}>
+            <input
+              className="h-10 min-w-0 flex-1 rounded-lg border border-[var(--flow-border)] bg-white px-3 text-[13px] font-medium text-[var(--flow-ink)] outline-none transition focus:border-[var(--flow-mint)]"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="teammate@example.com"
+              type="email"
+              value={email}
+            />
+            <button
+              className="flex h-10 items-center gap-2 rounded-lg bg-[var(--flow-ink)] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
+              disabled={isInviting || !email.trim()}
+              type="submit"
+            >
+              {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+              Invite
+            </button>
+          </form>
+          {message && (
+            <p className="mt-2 rounded-lg bg-[var(--flow-panel)] px-3 py-2 text-[12px] font-semibold text-[var(--flow-muted)]">
+              {message}
+            </p>
+          )}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-[var(--flow-muted)]">
+            <Users className="h-4 w-4 text-mint-700" />
+            Shared with
+          </div>
+          {isLoading ? (
+            <div className="flex items-center gap-2 rounded-lg bg-[var(--flow-panel)] px-3 py-4 text-[13px] text-[var(--flow-muted)]">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading collaborators
+            </div>
+          ) : collaborators.length > 0 ? (
+            <div className="grid gap-2">
+              {collaborators.map((collaborator) => (
+                <div
+                  className="flex items-center gap-3 rounded-lg border border-[var(--flow-border)] bg-[var(--flow-panel)] px-3 py-2"
+                  key={collaborator.id}
+                >
+                  <span
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white"
+                    style={{ backgroundColor: avatarColor(collaborator.email) }}
+                  >
+                    {initialsFor(collaborator.name, collaborator.email)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold text-[var(--flow-ink)]">
+                      {collaborator.name}
+                    </span>
+                    <span className="block truncate text-[12px] text-[var(--flow-muted)]">
+                      {collaborator.email}
+                    </span>
+                  </span>
+                  <span className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-[var(--flow-muted)]">
+                    {collaborator.status === "pending" ? "Pending" : collaborator.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-[var(--flow-border)] bg-[var(--flow-panel)] px-4 py-8 text-center">
+              <Share2 className="mx-auto mb-2 h-5 w-5 text-sky-500" />
+              <p className="text-[13px] font-semibold text-[var(--flow-ink)]">
+                This board is private
+              </p>
+              <p className="mt-1 text-[12px] text-[var(--flow-muted)]">
+                Invite someone by email to start collaborating.
+              </p>
+            </div>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function TaskCommentBadge({
+  task,
+  onClick,
+}: {
+  task: KanbanTask;
+  onClick: () => void;
+}) {
+  const { threads } = useThreads({
+    query: { metadata: { taskId: String(task.id) } },
+  });
+  const commentCount = threads.reduce(
+    (total, thread) => total + thread.comments.length,
+    0
+  );
+
+  return (
+    <button
+      className="relative grid h-7 min-w-7 place-items-center rounded-md px-1.5 text-[var(--flow-muted)] transition hover:bg-[var(--flow-panel)] hover:text-[var(--flow-ink)]"
+      onClick={onClick}
+      title="Task comments"
+      type="button"
+    >
+      <MessageCircle className="h-4 w-4" />
+      {commentCount > 0 && (
+        <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--flow-coral)] px-1 text-[9px] font-bold text-white">
+          {commentCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function TaskCommentsPanel({
+  boardId,
+  task,
+}: {
+  boardId: number;
+  task: KanbanTask;
+}) {
+  const updatePresence = useUpdateMyPresence();
+  const createThread = useCreateThread();
+  const { threads } = useThreads({
+    query: {
+      metadata: {
+        boardId: String(boardId),
+        taskId: String(task.id),
+      },
+    },
+  });
+
+  useEffect(() => {
+    updatePresence({ activeTaskId: String(task.id) });
+
+    return () => updatePresence({ activeTaskId: null });
+  }, [task.id, updatePresence]);
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-[14px] font-semibold text-[var(--flow-ink)]">
+            Comments
+          </h3>
+          <p className="text-[12px] text-[var(--flow-muted)]">
+            Real-time discussion for this task.
+          </p>
+        </div>
+        <span className="rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-[var(--flow-muted)]">
+          {threads.reduce((total, thread) => total + thread.comments.length, 0)}
+        </span>
+      </div>
+
+      {threads.length > 0 ? (
+        <div className="grid max-h-[280px] gap-3 overflow-y-auto pr-1">
+          {threads.map((thread) => (
+            <Thread key={thread.id} thread={thread} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-[var(--flow-border)] bg-white px-3 py-4 text-center">
+          <MessageCircle className="mx-auto mb-2 h-5 w-5 text-[var(--flow-soft)]" />
+          <p className="text-[13px] font-semibold text-[var(--flow-ink)]">
+            No comments yet
+          </p>
+          <p className="text-[12px] text-[var(--flow-muted)]">
+            Start the thread with a short update.
+          </p>
+        </div>
+      )}
+
+      <Composer.Form
+        className="rounded-lg border border-[var(--flow-border)] bg-white p-2"
+        onComposerSubmit={({ body, attachments }, event) => {
+          event.preventDefault();
+          createThread({
+            body,
+            attachments,
+            metadata: {
+              boardId: String(boardId),
+              taskId: String(task.id),
+            },
+          });
+        }}
+      >
+        <Composer.Editor
+          className="min-h-[72px] px-2 py-1 text-[13px] outline-none"
+          placeholder="Add a comment"
+        />
+        <div className="mt-2 flex justify-end">
+          <Composer.Submit
+            className="flex h-8 items-center gap-2 rounded-lg bg-[var(--flow-ink)] px-3 text-[12px] font-semibold text-white"
+          >
+            <Send className="h-3.5 w-3.5" />
+            Comment
+          </Composer.Submit>
+        </div>
+      </Composer.Form>
+    </div>
   );
 }
 
@@ -1200,6 +1634,7 @@ function TaskCard({
           )}
         </div>
         <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+          <TaskCommentBadge task={task} onClick={() => onEdit(task)} />
           <button
             className="grid h-7 w-7 place-items-center rounded-md text-[var(--flow-muted)] transition hover:bg-[var(--flow-panel)] hover:text-[var(--flow-ink)]"
             onClick={() => onEdit(task)}

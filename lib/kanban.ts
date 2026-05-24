@@ -1,12 +1,16 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 
 import {
   calendarTasks,
   db,
+  kanbanBoardShares,
   kanbanBoards,
   kanbanColumns,
+  kanbanTasks,
+  users,
   type KanbanLabel,
   type KanbanTask,
+  type User,
 } from "@/db";
 
 export const defaultBoardColors = [
@@ -50,6 +54,16 @@ export function normalizeColumnName(name?: string) {
   }
 
   return nextName;
+}
+
+export function normalizeShareEmail(email?: string) {
+  const nextEmail = email?.trim().toLowerCase();
+
+  if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+    throw new Error("A valid email address is required.");
+  }
+
+  return nextEmail;
 }
 
 export function normalizeLabels(labels: unknown): KanbanLabel[] {
@@ -120,6 +134,38 @@ export async function getUserBoard(boardId: number, userId: number) {
   return board || null;
 }
 
+export async function getAccessibleBoard(boardId: number, user: User) {
+  const [result] = await db
+    .select({
+      board: kanbanBoards,
+      share: kanbanBoardShares,
+    })
+    .from(kanbanBoards)
+    .leftJoin(
+      kanbanBoardShares,
+      and(
+        eq(kanbanBoardShares.boardId, kanbanBoards.id),
+        or(
+          eq(kanbanBoardShares.userId, user.id),
+          eq(kanbanBoardShares.email, user.email.toLowerCase())
+        )
+      )
+    )
+    .where(
+      and(
+        eq(kanbanBoards.id, boardId),
+        or(eq(kanbanBoards.userId, user.id), eq(kanbanBoardShares.role, "editor"))
+      )
+    )
+    .limit(1);
+
+  return result || null;
+}
+
+export async function getEditableBoard(boardId: number, user: User) {
+  return getAccessibleBoard(boardId, user);
+}
+
 export async function getUserColumn(columnId: number, userId: number) {
   const [result] = await db
     .select({
@@ -132,6 +178,133 @@ export async function getUserColumn(columnId: number, userId: number) {
     .limit(1);
 
   return result || null;
+}
+
+export async function getAccessibleColumn(columnId: number, user: User) {
+  const [result] = await db
+    .select({
+      column: kanbanColumns,
+      board: kanbanBoards,
+      share: kanbanBoardShares,
+    })
+    .from(kanbanColumns)
+    .innerJoin(kanbanBoards, eq(kanbanColumns.boardId, kanbanBoards.id))
+    .leftJoin(
+      kanbanBoardShares,
+      and(
+        eq(kanbanBoardShares.boardId, kanbanBoards.id),
+        or(
+          eq(kanbanBoardShares.userId, user.id),
+          eq(kanbanBoardShares.email, user.email.toLowerCase())
+        )
+      )
+    )
+    .where(
+      and(
+        eq(kanbanColumns.id, columnId),
+        or(eq(kanbanBoards.userId, user.id), eq(kanbanBoardShares.role, "editor"))
+      )
+    )
+    .limit(1);
+
+  return result || null;
+}
+
+export async function getAccessibleTask(taskId: number, user: User) {
+  const [result] = await db
+    .select({
+      task: kanbanTasks,
+      board: kanbanBoards,
+      share: kanbanBoardShares,
+    })
+    .from(kanbanTasks)
+    .innerJoin(kanbanBoards, eq(kanbanTasks.boardId, kanbanBoards.id))
+    .leftJoin(
+      kanbanBoardShares,
+      and(
+        eq(kanbanBoardShares.boardId, kanbanBoards.id),
+        or(
+          eq(kanbanBoardShares.userId, user.id),
+          eq(kanbanBoardShares.email, user.email.toLowerCase())
+        )
+      )
+    )
+    .where(
+      and(
+        eq(kanbanTasks.id, taskId),
+        or(eq(kanbanBoards.userId, user.id), eq(kanbanBoardShares.role, "editor"))
+      )
+    )
+    .limit(1);
+
+  return result || null;
+}
+
+export async function getBoardCollaborators(boardId: number) {
+  const [board] = await db
+    .select({
+      id: kanbanBoards.id,
+      ownerId: kanbanBoards.userId,
+      ownerName: users.name,
+      ownerEmail: users.email,
+    })
+    .from(kanbanBoards)
+    .innerJoin(users, eq(kanbanBoards.userId, users.id))
+    .where(eq(kanbanBoards.id, boardId))
+    .limit(1);
+
+  if (!board) {
+    return null;
+  }
+
+  const shares = await db
+    .select({
+      id: kanbanBoardShares.id,
+      email: kanbanBoardShares.email,
+      role: kanbanBoardShares.role,
+      userId: kanbanBoardShares.userId,
+      name: users.name,
+      createdAt: kanbanBoardShares.createdAt,
+    })
+    .from(kanbanBoardShares)
+    .leftJoin(users, eq(kanbanBoardShares.userId, users.id))
+    .where(eq(kanbanBoardShares.boardId, boardId));
+
+  return {
+    owner: {
+      id: `owner-${board.ownerId}`,
+      userId: board.ownerId,
+      email: board.ownerEmail,
+      name: board.ownerName || board.ownerEmail,
+      role: "owner",
+      status: "active",
+    },
+    shares: shares.map((share) => ({
+      id: `share-${share.id}`,
+      userId: share.userId,
+      email: share.email,
+      name: share.name || share.email,
+      role: share.role,
+      status: share.userId ? "active" : "pending",
+      createdAt: share.createdAt,
+    })),
+  };
+}
+
+export function kanbanRoomId(boardId: number) {
+  return `kanban-board-${boardId}`;
+}
+
+export function parseKanbanRoomId(roomId: string) {
+  const match = /^kanban-board-(\d+)$/.exec(roomId);
+
+  if (!match) {
+    return null;
+  }
+
+  const boardId = Number(match[1]);
+
+  return Number.isInteger(boardId) ? boardId : null;
 }
 
 function calendarPayloadForTask(

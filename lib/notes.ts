@@ -73,6 +73,8 @@ export function buildNoteCreateValues(payload: NotePayload, userId: number) {
     plainText: normalizePlainText(payload.plainText),
     color: normalizeColor(payload.color),
     isPinned: Boolean(payload.isPinned),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 

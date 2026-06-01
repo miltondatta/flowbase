@@ -114,6 +114,27 @@ export const kanbanTasks = pgTable("kanban_tasks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export type NoteContent = {
+  type: string;
+  content?: unknown[];
+};
+
+export const notes = pgTable("notes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  title: text("title").notNull(),
+  contentJson: jsonb("content_json").$type<NoteContent>().notNull(),
+  plainText: text("plain_text").notNull().default(""),
+  color: text("color").notNull().default("#f4b942"),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  isTrashed: boolean("is_trashed").notNull().default(false),
+  trashedAt: timestamp("trashed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type CalendarTask = typeof calendarTasks.$inferSelect;
@@ -126,3 +147,5 @@ export type KanbanColumn = typeof kanbanColumns.$inferSelect;
 export type NewKanbanColumn = typeof kanbanColumns.$inferInsert;
 export type KanbanTask = typeof kanbanTasks.$inferSelect;
 export type NewKanbanTask = typeof kanbanTasks.$inferInsert;
+export type Note = typeof notes.$inferSelect;
+export type NewNote = typeof notes.$inferInsert;

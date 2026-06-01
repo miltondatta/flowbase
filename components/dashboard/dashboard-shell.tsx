@@ -5,9 +5,10 @@ import { useState } from "react";
 import { CalendarPage } from "@/components/dashboard/calendar-page";
 import { DashboardHome } from "@/components/dashboard/dashboard-home";
 import { KanbanPage } from "@/components/dashboard/kanban-page";
+import { NotesPage } from "@/components/dashboard/notes-page";
 import { Sidebar } from "@/components/dashboard/sidebar";
 
-type DashboardView = "dashboard" | "calendar" | "kanban";
+type DashboardView = "dashboard" | "calendar" | "kanban" | "notes";
 
 export function DashboardShell() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -26,6 +27,8 @@ export function DashboardShell() {
           <CalendarPage />
         ) : activeView === "kanban" ? (
           <KanbanPage />
+        ) : activeView === "notes" ? (
+          <NotesPage />
         ) : (
           <DashboardHome isSidebarCollapsed={isCollapsed} />
         )}

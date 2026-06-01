@@ -15,7 +15,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
-type DashboardView = "dashboard" | "calendar" | "kanban";
+type DashboardView = "dashboard" | "calendar" | "kanban" | "notes";
 
 type SidebarProps = {
   activeView: DashboardView;
@@ -73,6 +73,7 @@ const menuGroups: { label: string; items: MenuItem[] }[] = [
         icon: FileText,
         color: "text-amber-500",
         bg: "bg-amber-50",
+        view: "notes",
       },
       {
         label: "Whiteboard",

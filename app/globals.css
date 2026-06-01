@@ -167,4 +167,85 @@
     min-block-size: 2.75rem;
     padding: 0 1rem 0.75rem;
   }
+
+  .flow-note-editor {
+    overflow-wrap: anywhere;
+  }
+
+  .flow-note-editor > * + * {
+    margin-top: 0.875rem;
+  }
+
+  .flow-note-editor p.is-editor-empty:first-child::before {
+    color: var(--flow-soft);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .flow-note-editor h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 2.25rem;
+  }
+
+  .flow-note-editor h2 {
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.875rem;
+  }
+
+  .flow-note-editor ul,
+  .flow-note-editor ol {
+    padding-left: 1.35rem;
+  }
+
+  .flow-note-editor ul {
+    list-style: disc;
+  }
+
+  .flow-note-editor ol {
+    list-style: decimal;
+  }
+
+  .flow-note-editor blockquote {
+    border-left: 3px solid var(--flow-mint);
+    color: var(--flow-muted);
+    padding-left: 1rem;
+  }
+
+  .flow-note-code-block {
+    background: var(--flow-panel);
+    border: 1px solid var(--flow-border);
+    border-radius: 0.5rem;
+    color: var(--flow-ink);
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    overflow-x: auto;
+    padding: 0.875rem 1rem;
+  }
+
+  .flow-note-link {
+    color: var(--flow-sky);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .flow-note-task-list {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .flow-note-task-list li {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.625rem;
+  }
+
+  .flow-note-task-list input {
+    accent-color: var(--flow-mint);
+    margin-top: 0.45rem;
+  }
 }

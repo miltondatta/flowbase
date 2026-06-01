@@ -133,3 +133,38 @@
     font: inherit;
   }
 }
+
+@layer components {
+  .flow-comments-composer {
+    --lb-accent: var(--flow-sky);
+    --lb-background: #fff;
+    --lb-foreground: var(--flow-ink);
+    --lb-radius: 0.5rem;
+    --lb-spacing: 0.75rem;
+    box-shadow: none;
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  .flow-comments-composer .lb-composer-editor {
+    min-block-size: 3.25rem;
+    padding: 0.875rem 1rem 0.5rem;
+    color: var(--flow-ink);
+  }
+
+  .flow-comments-composer .lb-composer-editor [data-placeholder] {
+    color: var(--flow-soft);
+    pointer-events: none;
+  }
+
+  .flow-comments-composer
+    .lb-composer-editor:has([data-slate-string]:not(:empty))
+    [data-placeholder] {
+    display: none;
+  }
+
+  .flow-comments-composer .lb-composer-footer {
+    min-block-size: 2.75rem;
+    padding: 0 1rem 0.75rem;
+  }
+}

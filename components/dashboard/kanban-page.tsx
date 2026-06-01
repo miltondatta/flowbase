@@ -6,14 +6,12 @@ import { LiveblocksProvider } from "@liveblocks/react";
 import {
   ClientSideSuspense,
   RoomProvider,
-  useCreateThread,
   useOthers,
   useSelf,
   useThreads,
   useUpdateMyPresence,
 } from "@liveblocks/react/suspense";
-import { Thread } from "@liveblocks/react-ui";
-import { Composer } from "@liveblocks/react-ui/primitives";
+import { Composer, Thread } from "@liveblocks/react-ui";
 import {
   CalendarDays,
   CheckCircle2,
@@ -27,7 +25,6 @@ import {
   Loader2,
   MoreHorizontal,
   Plus,
-  Send,
   Settings,
   Share2,
   Sparkles,
@@ -1438,7 +1435,12 @@ function TaskCommentBadge({
   onClick: () => void;
 }) {
   const { threads } = useThreads({
-    query: { metadata: { taskId: String(task.id) } },
+    query: {
+      metadata: {
+        boardId: String(task.boardId),
+        taskId: String(task.id),
+      },
+    },
   });
   const commentCount = threads.reduce(
     (total, thread) => total + thread.comments.length,
@@ -1470,7 +1472,6 @@ function TaskCommentsPanel({
   task: KanbanTask;
 }) {
   const updatePresence = useUpdateMyPresence();
-  const createThread = useCreateThread();
   const { threads } = useThreads({
     query: {
       metadata: {
@@ -1520,33 +1521,18 @@ function TaskCommentsPanel({
         </div>
       )}
 
-      <Composer.Form
-        className="rounded-lg border border-[var(--flow-border)] bg-white p-2"
-        onComposerSubmit={({ body, attachments }, event) => {
-          event.preventDefault();
-          createThread({
-            body,
-            attachments,
-            metadata: {
-              boardId: String(boardId),
-              taskId: String(task.id),
-            },
-          });
+      <Composer
+        className="flow-comments-composer rounded-lg border border-[var(--flow-border)] bg-white"
+        metadata={{
+          boardId: String(boardId),
+          taskId: String(task.id),
         }}
-      >
-        <Composer.Editor
-          className="min-h-[72px] px-2 py-1 text-[13px] outline-none"
-          placeholder="Add a comment"
-        />
-        <div className="mt-2 flex justify-end">
-          <Composer.Submit
-            className="flex h-8 items-center gap-2 rounded-lg bg-[var(--flow-ink)] px-3 text-[12px] font-semibold text-white"
-          >
-            <Send className="h-3.5 w-3.5" />
-            Comment
-          </Composer.Submit>
-        </div>
-      </Composer.Form>
+        overrides={{
+          COMPOSER_PLACEHOLDER: "Add a comment",
+          COMPOSER_SEND: "Comment",
+        }}
+        showAttachments={false}
+      />
     </div>
   );
 }

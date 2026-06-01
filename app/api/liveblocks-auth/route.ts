@@ -33,10 +33,15 @@ export async function POST(request: Request) {
   }
 
   const liveblocks = getLiveblocksClient();
-  const { status, body } = await liveblocks.identifyUser(
-    { userId: String(user.id), groupIds: [] },
-    { userInfo: await liveblocksUserInfo(user) }
-  );
+  const session = liveblocks.prepareSession(String(user.id), {
+    userInfo: await liveblocksUserInfo(user),
+  });
+
+  if (payload.room) {
+    session.allow(payload.room, session.FULL_ACCESS);
+  }
+
+  const { status, body } = await session.authorize();
 
   return new Response(body, { status });
 }

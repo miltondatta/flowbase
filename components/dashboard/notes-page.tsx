@@ -44,6 +44,8 @@ import {
   Underline as UnderlineIcon,
   Wand2,
 } from "lucide-react";
+import { Mic } from "lucide-react";
+import { useAssemblyAIStreaming } from "@/hooks/useAssemblyAIStreaming";
 
 import { cn } from "@/lib/utils";
 
@@ -212,6 +214,25 @@ export function NotesPage() {
     [notes, selectedNoteId]
   );
 
+  const {
+    start: startRecording,
+    stop: stopRecording,
+    isRecording,
+  } = useAssemblyAIStreaming({
+    onPartial: (text) => {
+      // TODO: live partial transcript preview UI
+    },
+    onFinal: (text) => {
+      if (editor) {
+        editor.chain().focus().insertContent(text + " ").run();
+        scheduleSave({
+          contentJson: editor.getJSON(),
+          plainText: editor.getText(),
+        });
+      }
+    },
+  });
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -270,6 +291,7 @@ export function NotesPage() {
         contentJson: editor.getJSON() as NoteContent,
         plainText: editor.getText(),
       });
+
     },
     onSelectionUpdate: ({ editor }) => {
       const { empty, from } = editor.state.selection;
@@ -709,7 +731,13 @@ export function NotesPage() {
                     </div>
                   </div>
 
-                  <Toolbar editor={editor} onLink={applyLink} />
+                  <Toolbar
+  editor={editor}
+  onLink={applyLink}
+  isRecording={isRecording}
+  startRecording={startRecording}
+  stopRecording={stopRecording}
+/>
                 </div>
 
                 <div className="relative min-h-0 flex-1 overflow-y-auto bg-[#fffdf8]">
@@ -823,9 +851,15 @@ export function NotesPage() {
 function Toolbar({
   editor,
   onLink,
+  isRecording,
+  startRecording,
+  stopRecording,
 }: {
   editor: Editor;
   onLink: () => void;
+  isRecording: boolean;
+  startRecording: () => void;
+  stopRecording: () => void;
 }) {
   const tools = [
     {
@@ -934,6 +968,20 @@ function Toolbar({
         type="button"
       >
         <Link2 className="h-4 w-4" />
+      </button>
+      <button
+        aria-label="Speak to Note"
+        className={cn(
+          "grid h-8 min-w-8 place-items-center rounded-md transition hover:bg-white",
+          isRecording
+            ? "text-red-600 animate-pulse bg-white shadow-[0_6px_16px_rgba(255,0,0,0.25)]"
+            : "text-[var(--flow-muted)] hover:text-[var(--flow-ink)]"
+        )}
+        onClick={isRecording ? stopRecording : startRecording}
+        title="Speak to Note"
+        type="button"
+      >
+        <Mic className="h-4 w-4" />
       </button>
       <div className="mx-1 h-5 w-px shrink-0 bg-[var(--flow-border)]" />
       <button

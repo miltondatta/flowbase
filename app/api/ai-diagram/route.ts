@@ -11,95 +11,117 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "GEMINI_API_KEY is not set in environment." },
+        { error: "OPENROUTER_API_KEY is not set in environment." },
         { status: 500 }
       );
     }
 
-    const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" +
-        apiKey,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text:
-                    "Generate an Excalidraw-compatible list of diagram elements as JSON." +
-                    " Diagram type: " +
-                    diagramType +
-                    ". User prompt: " +
-                    prompt +
-                    ".\n" +
-                    "IMPORTANT: Respond ONLY with valid JSON array of elements. No commentary."
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
+    // OpenRouter endpoint
+    const url = "https://openrouter.ai/api/v1/chat/completions";
 
-    const result = await geminiResponse.json();
+    // Strong layout instructions for clean diagram output (DeepSeek V3)
+    const systemPrompt = `
+You are a diagram layout engine. Generate clean, well‑spaced Excalidraw JSON.
 
-    const text =
-      result?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+RULES:
+- Respond ONLY with a JSON array.
+- NO markdown, NO code fences, NO text before/after JSON.
+- No overlapping. No messy stacking.
+- Use clear hierarchical layout.
+- y coordinates must increase by 250 per step.
+- x coordinates must be spaced by 300 horizontally.
+- Create 6–12 shapes.
+- Supported types: rectangle, diamond, ellipse, arrow, text.
+- Arrows must include: "points": [[0,0],[120,0]].
+- All shapes must include: id, type, x, y, width, height, text, fontSize.
+`;
 
-    // Sanitize Gemini output to ensure valid JSON
-    const clean = text
+    const userPrompt = `
+Diagram type: ${diagramType}
+User description: ${prompt}
+
+Return ONLY a JSON array. No explanations.
+`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + apiKey,
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "Flowbase Diagram Generation",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "deepseek/deepseek-v4-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.3
+      }),
+    });
+
+    const json = await response.json();
+
+    if (!json || !json.choices || !json.choices[0]?.message?.content) {
+      return NextResponse.json(
+        { error: "OpenRouter returned invalid structure", raw: json },
+        { status: 500 }
+      );
+    }
+
+    const raw = json.choices[0].message.content;
+
+    // Clean markdown or accidental text
+    const clean = raw
       .replace(/```json/gi, "")
       .replace(/```/g, "")
-      .replace(/^[^\[]*/, "")
-      .replace(/[^\]]*$/, "");
+      .trim();
 
     let elements = [];
     try {
-      elements = JSON.parse(clean);
+      const parsed = JSON.parse(clean);
 
-      // Normalize all elements into valid Excalidraw schema
-      elements = elements.map((el: any) => {
+      elements = parsed.map((el: any) => {
+        const isArrow = el.type === "arrow";
+
         return {
-          // Required core fields
-          id: el.id || `ai_${Date.now()}_${Math.random()}`,
+          id: el.id || `ds_${Date.now()}_${Math.random()}`,
           type: el.type || "rectangle",
           x: Number(el.x) || 0,
           y: Number(el.y) || 0,
-          width: Number(el.width) || 120,
-          height: Number(el.height) || 60,
-
-          // Text support
+          width: Number(el.width) || 180,
+          height: Number(el.height) || 80,
+          points: isArrow
+            ? (el.points && Array.isArray(el.points)) ? el.points : [[0,0],[120,0]]
+            : undefined,
           text: el.text || "",
           fontSize: el.fontSize || 20,
 
-          // Required technical fields Excalidraw expects
-          version: el.version || 1,
-          versionNonce: el.versionNonce || Math.floor(Math.random() * 10000000),
-          seed: el.seed || Math.floor(Math.random() * 10000000),
-          strokeWidth: el.strokeWidth || 2,
-          strokeColor: el.strokeColor || "#000000",
-          backgroundColor: el.backgroundColor || "transparent",
-          fillStyle: el.fillStyle || "hachure",
-          strokeStyle: el.strokeStyle || "solid",
-          roughness: el.roughness || 1,
-          opacity: el.opacity || 100,
-          angle: el.angle || 0,
-          roundness: el.roundness || { type: 2 },
-          groupIds: Array.isArray(el.groupIds) ? el.groupIds : [],
-          boundElements: Array.isArray(el.boundElements) ? el.boundElements : [],
-          updated: Date.now()
+          // required internal fields
+          version: 1,
+          versionNonce: Math.floor(Math.random() * 999999999),
+          seed: Math.floor(Math.random() * 999999999),
+          strokeWidth: 2,
+          strokeColor: "#000000",
+          backgroundColor: "transparent",
+          fillStyle: "hachure",
+          strokeStyle: "solid",
+          roughness: 1,
+          opacity: 100,
+          angle: 0,
+          roundness: { type: 2 },
+          groupIds: [],
+          boundElements: [],
+          updated: Date.now(),
         };
       });
-    } catch {
+    } catch (err) {
       return NextResponse.json(
-        { error: "Gemini returned invalid JSON.", raw: text },
+        { error: "OpenRouter DeepSeek returned non‑JSON output.", raw: clean },
         { status: 500 }
       );
     }

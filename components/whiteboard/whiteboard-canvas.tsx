@@ -4,7 +4,7 @@ import "@excalidraw/excalidraw/index.css";
 import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 /* exportToBlob must be dynamically imported to avoid SSR window errors */
-import { Image, Loader2, Sparkles, StickyNote } from "lucide-react";
+import { Image, Loader2, Sparkles, StickyNote, Save } from "lucide-react";
 /* Excalidraw's internal types cannot be imported externally.
    We safely use 'any' for these types. */
 type ExcalidrawImperativeAPI = any;
@@ -32,20 +32,13 @@ const [showAIDialog, setShowAIDialog] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
-  const saveDebounced = useRef<NodeJS.Timeout | null>(null);
 
-function onSceneChanged(elements: any, appState: any, files: any) {
-  if (saveDebounced.current) clearTimeout(saveDebounced.current);
-  saveDebounced.current = setTimeout(() => {
-    handleSceneUpdate(elements, appState, files);
-  }, 2800);
-}
 
 async function downloadPng() {
   if (!api) return;
   const { exportToBlob } = await import("@excalidraw/excalidraw");
   const blob = await exportToBlob({
-    elements: api.getSceneElements(),
+    elements: api.getSceneElements().filter((el: any) => !el.id?.startsWith("sticky_")),
     appState: api.getAppState(),
     files: api.getFiles(),
     mimeType: "image/png",
@@ -201,13 +194,37 @@ async function downloadPng() {
     <StickyNote size={16} />
     Note
   </button>
-          {saving ? (
-            <div className="flex items-center text-xs text-gray-500">
-              <Loader2 className="animate-spin mr-1" size={14} /> Saving…
-            </div>
-          ) : (
-            <p className="text-xs text-gray-400">Saved</p>
-          )}
+
+  <button
+    onClick={async () => {
+      if (!api || whiteboardId === null) return;
+      setSaving(true);
+
+      const elements = api.getSceneElements();
+      const appState = api.getAppState();
+      const files = api.getFiles();
+
+      await fetch(`/api/whiteboards/${whiteboardId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          data: { elements, appState, files }
+        }),
+      });
+
+      setSaving(false);
+    }}
+    className={`px-3 py-1 rounded-full bg-gray-500 hover:bg-gray-600 text-white flex items-center gap-1 text-sm ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
+    disabled={saving}
+    title="Save Diagram"
+  >
+    <Save size={16} />
+    Save Diagram
+  </button>
+
+  {saving && (
+    <Loader2 size={18} className="animate-spin text-gray-600" />
+  )}
+
         </div>
       </div>
 
@@ -222,9 +239,14 @@ async function downloadPng() {
           </div>
         ) : (
           <Excalidraw
-            initialData={initialData}
+            initialData={
+              initialData || {
+                elements: [],
+                appState: { collaborators: [] },
+                files: {},
+              }
+            }
             excalidrawAPI={(api: ExcalidrawImperativeAPI) => setApi(api)}
-onChange={onSceneChanged}
           />
         )}
 {showAIDialog && (
@@ -273,7 +295,8 @@ onChange={onSceneChanged}
               setAiLoading(true);
               setAiError("");
 
-              const res = await fetch("/api/ai-diagram", {
+console.log("AI GENERATE: starting request…");
+const res = await fetch("/api/ai-diagram", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -282,34 +305,53 @@ onChange={onSceneChanged}
                 }),
               });
 
-              const data = await res.json();
-              if (!res.ok) {
+console.log("AI GENERATE: got response object", res);
+const data = await res.json();
+console.log("AI GENERATE: parsed JSON", data);
+if (!res.ok) {
+  console.log("AI GENERATE: response not ok", data);
                 setAiError(data.error || "Failed to generate diagram.");
                 setAiLoading(false);
                 return;
               }
 
-              if (!Array.isArray(data.elements)) {
+if (!Array.isArray(data.elements)) {
+  console.log("AI GENERATE: elements invalid", data);
                 setAiError("Invalid diagram format returned by AI.");
                 setAiLoading(false);
                 return;
               }
 
-              if (api) {
-                const existing = api.getSceneElements();
-                api.updateScene({
-                  elements: [...existing, ...data.elements],
-                });
-              }
+if (api) {
+  console.log("AI GENERATE: updating scene with elements", data.elements);
+  const existing = api.getSceneElements();
+
+  // FILTER OUT STICKY NOTES BEFORE MERGING
+  const filtered = existing.filter((el: any) => !el.id?.startsWith("sticky_"));
+
+  console.log("EXISTING ELEMENTS BEFORE AI ADD (STICKY NOTES REMOVED):", filtered);
+
+  api.updateScene({
+    elements: [...filtered, ...data.elements],
+    appState: api.getAppState(),
+    files: api.getFiles(),
+  });
+
+  api.scrollToContent(data.elements, {
+    fitToContent: true,
+    padding: 50,
+  });
+}
 
               // Auto-close dialog
               setShowAIDialog(false);
               setAiPrompt("");
               setAiLoading(false);
-            } catch (err) {
-              setAiError("Unexpected error");
-              setAiLoading(false);
-            }
+} catch (err) {
+  console.error("AI GENERATE: caught exception", err);
+  setAiError("Unexpected error");
+  setAiLoading(false);
+}
           }}
           className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
           disabled={aiLoading}

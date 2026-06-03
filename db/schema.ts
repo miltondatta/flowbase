@@ -28,9 +28,7 @@ export const posts = pgTable("posts", {
 
 export const calendarTasks = pgTable("calendar_tasks", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: text("user_id").notNull(),
   title: text("title").notNull(),
   type: text("type").notNull().default("task"),
   category: text("category").notNull(),
@@ -50,9 +48,7 @@ export type KanbanLabel = {
 
 export const kanbanBoards = pgTable("kanban_boards", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: text("user_id").notNull(),
   name: text("name").notNull(),
   color: text("color").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -121,9 +117,7 @@ export type NoteContent = {
 
 export const notes = pgTable("notes", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: text("user_id").notNull(),
   title: text("title").notNull(),
   contentJson: jsonb("content_json").$type<NoteContent>().notNull(),
   plainText: text("plain_text").notNull().default(""),
@@ -131,6 +125,16 @@ export const notes = pgTable("notes", {
   isPinned: boolean("is_pinned").notNull().default(false),
   isTrashed: boolean("is_trashed").notNull().default(false),
   trashedAt: timestamp("trashed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const whiteboards = pgTable("whiteboards", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  data: jsonb("data").notNull().default({}),
+  color: text("color").notNull().default("#4f46e5"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -149,3 +153,6 @@ export type KanbanTask = typeof kanbanTasks.$inferSelect;
 export type NewKanbanTask = typeof kanbanTasks.$inferInsert;
 export type Note = typeof notes.$inferSelect;
 export type NewNote = typeof notes.$inferInsert;
+
+export type Whiteboard = typeof whiteboards.$inferSelect;
+export type NewWhiteboard = typeof whiteboards.$inferInsert;

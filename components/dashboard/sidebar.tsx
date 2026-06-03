@@ -1,3 +1,4 @@
+"use client";
 import {
   Bot,
   CalendarDays,
@@ -14,8 +15,9 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
-type DashboardView = "dashboard" | "calendar" | "kanban" | "notes";
+type DashboardView = "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard";
 
 type SidebarProps = {
   activeView: DashboardView;
@@ -30,6 +32,7 @@ type MenuItem = {
   color: string;
   bg: string;
   view?: DashboardView;
+  url?: string;
 };
 
 const menuGroups: { label: string; items: MenuItem[] }[] = [
@@ -75,12 +78,13 @@ const menuGroups: { label: string; items: MenuItem[] }[] = [
         bg: "bg-amber-50",
         view: "notes",
       },
-      {
-        label: "Whiteboard",
-        icon: Palette,
-        color: "text-rose-500",
-        bg: "bg-rose-50",
-      },
+        {
+          label: "Whiteboard",
+          icon: Palette,
+          color: "text-rose-500",
+          bg: "bg-rose-50",
+          view: "whiteboard",
+        },
     ],
   },
   {
@@ -119,6 +123,7 @@ export function Sidebar({
   onNavigate,
   onToggle,
 }: SidebarProps) {
+  const router = useRouter();
   return (
     <aside
       className={cn(
@@ -169,7 +174,10 @@ export function Sidebar({
                       isCollapsed && "justify-center px-0"
                     )}
                     key={item.label}
-                    onClick={() => item.view && onNavigate(item.view)}
+                     onClick={() => {
+                       if (item.url) router.push(item.url)
+                       else if (item.view) onNavigate(item.view)
+                     }}
                     title={isCollapsed ? item.label : undefined}
                     type="button"
                   >

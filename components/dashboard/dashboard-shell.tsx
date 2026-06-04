@@ -6,11 +6,12 @@ import { CalendarPage } from "@/components/dashboard/calendar-page";
 import { DashboardHome } from "@/components/dashboard/dashboard-home";
 import { KanbanPage } from "@/components/dashboard/kanban-page";
 import { NotesPage } from "@/components/dashboard/notes-page";
+import SpacesPage from "@/app/spaces/page";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import WhiteboardSidebar from "@/components/whiteboard/whiteboard-sidebar";
 import WhiteboardCanvas from "@/components/whiteboard/whiteboard-canvas";
 
-type DashboardView = "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard";
+type DashboardView = "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard" | "spaces";
 
 export function DashboardShell() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -45,6 +46,8 @@ export function DashboardShell() {
               <KanbanPage />
             ) : activeView === "notes" ? (
               <NotesPage />
+            ) : activeView === "spaces" ? (
+              <SpacesPage />
             ) : (
               <DashboardHome isSidebarCollapsed={isCollapsed} />
             )}

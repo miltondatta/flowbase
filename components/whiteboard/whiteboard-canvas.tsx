@@ -238,7 +238,8 @@ async function downloadPng() {
             <Loader2 size={32} className="animate-spin text-gray-400" />
           </div>
         ) : (
-          <Excalidraw
+          <div className="relative w-full h-full">
+            <Excalidraw
             initialData={
               initialData || {
                 elements: [],
@@ -248,6 +249,38 @@ async function downloadPng() {
             }
             excalidrawAPI={(api: ExcalidrawImperativeAPI) => setApi(api)}
           />
+           
+            {/* Placeholder overlay (only when board is empty) */}
+            {initialData?.elements?.length === 0 && (
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center text-gray-500 select-none">
+              <div className="mb-4 text-2xl font-semibold">Flowbase Whiteboard</div>
+
+              <p className="text-sm mb-6">
+                Start with a sketch, note, or diagram.
+              </p>
+
+              <div className="flex flex-col gap-4 text-sm">
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-4 h-4 rounded-full border border-gray-400"></div>
+                  Add sticky note
+                </div>
+
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-4 h-4 rounded-full border border-gray-400"></div>
+                  Generate AI diagram
+                </div>
+              </div>
+
+              <div className="absolute left-10 top-20 rotate-[-15deg] text-gray-400">
+                ← Open board options
+              </div>
+
+              <div className="absolute right-10 top-32 rotate-[10deg] text-gray-400">
+                Pick a drawing tool →
+              </div>
+            </div>
+            )}
+          </div>
         )}
 {showAIDialog && (
   <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-50">

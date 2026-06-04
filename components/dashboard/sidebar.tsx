@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
-type DashboardView = "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard";
+type DashboardView = "dashboard" | "calendar" | "kanban" | "notes" | "whiteboard" | "spaces";
 
 type SidebarProps = {
   activeView: DashboardView;
@@ -90,12 +90,13 @@ const menuGroups: { label: string; items: MenuItem[] }[] = [
   {
     label: "Organize",
     items: [
-      {
-        label: "Pages / Spaces",
-        icon: LibraryBig,
-        color: "text-teal-500",
-        bg: "bg-teal-50",
-      },
+        {
+          label: "Pages / Spaces",
+          icon: LibraryBig,
+          color: "text-teal-500",
+          bg: "bg-teal-50",
+          view: "spaces",
+        },
       {
         label: "AI Template Builder",
         icon: Sparkles,

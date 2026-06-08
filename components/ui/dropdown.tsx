@@ -31,17 +31,37 @@ export function Dropdown({
 export function DropdownTrigger({
   children,
   className,
+  asChild = false,
 }: {
   children: React.ReactNode;
   className?: string;
+  asChild?: boolean;
 }) {
   const ctx = React.useContext(DropdownContext);
   if (!ctx) throw new Error("DropdownTrigger must be used within <Dropdown>");
 
+  if (asChild) {
+    // When asChild is true, don't render wrapper button - let child handle click
+    return (
+      <div 
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.setOpen(!ctx.open);
+        }}
+        className={cn("inline-block", className)}
+      >
+        {children}
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
-      onClick={() => ctx.setOpen(!ctx.open)}
+      onClick={(e) => {
+        e.stopPropagation();
+        ctx.setOpen(!ctx.open);
+      }}
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--flow-muted)] hover:bg-[var(--flow-panel)] transition",
         className
@@ -90,7 +110,10 @@ export function DropdownItem({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
       className={cn(
         "flex w-full items-center px-3 py-2 text-sm text-left transition",
         danger

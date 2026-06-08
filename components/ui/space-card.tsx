@@ -75,11 +75,14 @@ export function SpaceCard({
           </button>
 
           <Dropdown>
-            <DropdownTrigger>
+            <DropdownTrigger className="p-0">
               <MoreHorizontal className="h-5 w-5 text-[var(--flow-muted)] hover:text-[var(--flow-ink)]" />
             </DropdownTrigger>
 
             <DropdownMenu>
+              <DropdownItem onClick={() => onMenuAction?.("create-page")}>
+                Create Page
+              </DropdownItem>
               <DropdownItem onClick={() => onMenuAction?.("rename")}>
                 Rename Space
               </DropdownItem>
@@ -95,16 +98,10 @@ export function SpaceCard({
 
               <DropdownSeparator />
 
-              <DropdownItem
-                onClick={() => onMenuAction?.("archive")}
-                danger
-              >
+              <DropdownItem onClick={() => onMenuAction?.("archive")} danger>
                 Archive
               </DropdownItem>
-              <DropdownItem
-                onClick={() => onMenuAction?.("delete")}
-                danger
-              >
+              <DropdownItem onClick={() => onMenuAction?.("delete")} danger>
                 Delete
               </DropdownItem>
             </DropdownMenu>

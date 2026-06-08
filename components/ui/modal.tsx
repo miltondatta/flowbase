@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 interface ModalContextProps {
@@ -28,16 +29,23 @@ export function Modal({
 
 export function ModalTrigger({
   children,
+  asChild = false,
 }: {
   children: React.ReactNode;
+  asChild?: boolean;
 }) {
   const ctx = React.useContext(ModalContext);
   if (!ctx) throw new Error("ModalTrigger must be used inside <Modal>");
 
+  const Comp = asChild ? Slot : "button";
+  
   return (
-    <button type="button" onClick={() => ctx.setOpen(true)}>
+    <Comp 
+      type={asChild ? undefined : "button"}
+      onClick={() => ctx.setOpen(true)}
+    >
       {children}
-    </button>
+    </Comp>
   );
 }
 
